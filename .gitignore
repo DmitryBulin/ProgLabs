@@ -1,6 +1,9 @@
 *.layout
 *.save
-
+*.cbp
+/bin
+/obj
+/Debug
 
 # Prerequisites
 *.d
