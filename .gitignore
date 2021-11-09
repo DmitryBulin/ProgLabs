@@ -1,6 +1,5 @@
 *.layout
 *.save
-*.cbp
 /bin
 /obj
 /Debug
