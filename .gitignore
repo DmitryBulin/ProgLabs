@@ -1,5 +1,6 @@
 *.layout
-*.layout.save
+*.save
+
 
 # Prerequisites
 *.d

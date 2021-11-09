@@ -16,7 +16,7 @@ void uint1024_test()
     uint1024_t first_uint1024, second_uint1024, temp_result;
     unsigned int inputed_uint = 0;
 
-    printf("Enter random unsigned int([0, 4294967295):\n");
+    printf("Enter random unsigned int([0, 4294967295]):\n");
     scanf("%u", &inputed_uint);
     printf("Entered unsigned int in uint1024: ");
     temp_result = from_uint(inputed_uint);

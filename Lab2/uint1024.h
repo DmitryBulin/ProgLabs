@@ -1,6 +1,3 @@
-#ifndef _HEAD_H_
-#define _HEAD_H_
-
 #define UINT1024_BLOCK_COUNT 35
 #define UINT1024_BLOCK_MAX 1000000000
 
@@ -21,4 +18,3 @@ uint1024_t mult_op(uint1024_t x, uint1024_t y);
 void printf_value(uint1024_t x);
 void scanf_value(uint1024_t* x);
 
-#endif

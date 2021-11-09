@@ -1,15 +1,12 @@
 # depslib dependency file v1.0
-1635513783 source:d:\work\itmo\prog\proglabs\lab2\main.c
+1635514105 source:d:\work\itmo\prog\proglabs\lab2\main.c
 	<stdio.h>
 	<stdlib.h>
-	<uint1024.h>
-	<limits.h>
-	<stdint.h>
-	<math.h>
+	"uint1024.h"
 
-1635514311 d:\work\itmo\prog\proglabs\lab2\uint1024.h
+1635588168 d:\work\itmo\prog\proglabs\lab2\uint1024.h
 
-1635514249 source:d:\work\itmo\prog\proglabs\lab2\uint1024.c
+1635588423 source:d:\work\itmo\prog\proglabs\lab2\uint1024.c
 	<uint1024.h>
 
 1635513780 source:d:\work\itmo\prog\proglabs\lab2\uint1024.h

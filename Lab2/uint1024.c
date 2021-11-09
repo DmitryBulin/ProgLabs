@@ -97,7 +97,7 @@ uint1024_t mult_op(uint1024_t x, uint1024_t y)
 void printf_value(uint1024_t x)
 {
     int i = UINT1024_BLOCK_COUNT - 1;
-    while (x.data[i] == 0)
+    while (i >= 0 && x.data[i] == 0)
     {
         i--;
     }
