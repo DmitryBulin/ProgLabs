@@ -1,0 +1,8 @@
+# depslib dependency file v1.0
+1636654616 source:d:\work\itmo\prog\proglabs\lab3\main.c
+	<stdio.h>
+	<stdlib.h>
+	<time.h>
+	<string.h>
+	<unistd.h>
+
