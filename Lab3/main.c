@@ -6,9 +6,9 @@
 
 char check_arguments_validation(int argc, char** argv);
 void print_arguments_info();
-unsigned long int get_line_count(FILE* file);
 time_t parsed_time(char* time_buff);
 unsigned short get_month_value(char* month_buff);
+unsigned int find_max_requests_in_time_gap(int total_lines_count);
 
 typedef struct request_statistic
 {
@@ -16,8 +16,9 @@ typedef struct request_statistic
     unsigned int request_number;
 } request_statistic;
 
-unsigned long long int required_time_gap;
 const short MAX_LINE_LENGTH = 512;
+unsigned long long int required_time_gap;
+time_t *request_times;
 
 int main(int argc, char** argv)
 {
@@ -31,8 +32,7 @@ int main(int argc, char** argv)
     output_file = fopen(argv[3], "w");
     printf("Got valid arguments. Starting to perform.\n");
 
-    unsigned long int input_lines_count = get_line_count(input_file);
-    time_t *request_times = calloc(0, sizeof(time_t));
+    request_times = calloc(0, sizeof(time_t));
     request_statistic *failed_requests = calloc(0, sizeof(request_statistic));
     unsigned long int total_statistic_entry = 0;
 
@@ -44,7 +44,7 @@ int main(int argc, char** argv)
     while (fgets(line_buff, MAX_LINE_LENGTH, input_file))
     {
         temp_index = 0;
-        while (line_buff[++temp_index] != '[');
+        while (line_buff[++temp_index - 1] != '[');
         strncpy(time_buff, line_buff + temp_index, 20);
         request_times = realloc(request_times, (current_line_count + 1) * sizeof(time_t));
         request_times[current_line_count] = parsed_time(time_buff);
@@ -85,9 +85,9 @@ int main(int argc, char** argv)
         free(request_buff);
         current_line_count++;
     }
-    free(time_buff);
-    free(line_buff);
 
+    unsigned int max_requests_in_time_gap = find_max_requests_in_time_gap(current_line_count);
+    fprintf(output_file, "Maximum requests in %lu seconds: %lu\n\n", required_time_gap, max_requests_in_time_gap);
     fprintf(output_file, "Total failed requests: %d\n", total_failed_request_number);
     fprintf(output_file, "Percentage of failed requests: %f%%\n", ((double)total_failed_request_number)/((double)current_line_count) * 100);
     for (temp_index = 0; temp_index < total_statistic_entry; temp_index++)
@@ -95,6 +95,9 @@ int main(int argc, char** argv)
         fprintf(output_file, "%s => %d times\n", failed_requests[temp_index].request_info, failed_requests[temp_index].request_number);
     }
     printf("Result put in file %s\n", argv[3]);
+
+    free(time_buff);
+    free(line_buff);
     free(failed_requests);
     fclose(input_file);
     fclose(output_file);
@@ -141,24 +144,6 @@ void print_arguments_info()
     printf("    input - input file name\n");
 }
 
-unsigned long int get_line_count(FILE* file)
-{
-    long unsigned int line_count = 1;
-    char temp_char;
-
-    while (!feof(file))
-    {
-        temp_char = fgetc(file);
-        if (temp_char == '\n')
-        {
-            line_count++;
-        }
-    }
-    fseek(file, 0L, SEEK_SET);
-
-    return line_count;
-}
-
 unsigned short get_month_value(char* month_buff)
 {
     if (strcmp(month_buff, "Jan") == 0)
@@ -203,4 +188,24 @@ time_t parsed_time(char* time_buff)
     free(month_buff);
 
     return mktime(&result_time);
+}
+
+unsigned int find_max_requests_in_time_gap(int total_lines_count)
+{
+    unsigned int result = 0;
+
+    unsigned int left = 0, right = 0, temp_result = 0;
+    while(right < total_lines_count)
+    {
+        temp_result++;
+        while(right > left && request_times[right] - request_times[left] > required_time_gap)
+        {
+            left++;
+            temp_result--;
+        }
+        right++;
+        result = (temp_result > result ? temp_result : result);
+    }
+
+    return result;
 }
