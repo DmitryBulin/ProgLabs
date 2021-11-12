@@ -2,13 +2,14 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include <unistd.h>
+#include <unistd.h> //Required for file validation
 
 char check_arguments_validation(int argc, char** argv);
 void print_arguments_info();
 time_t parsed_time(char* time_buff);
 unsigned short get_month_value(char* month_buff);
-unsigned int find_max_requests_in_time_gap(int total_lines_count);
+void proccess_new_failed_request(unsigned char request_length, char* request_buff);
+void print_result_info(FILE* output_file, char* output_file_name);
 
 typedef struct request_statistic
 {
@@ -17,8 +18,13 @@ typedef struct request_statistic
 } request_statistic;
 
 const short MAX_LINE_LENGTH = 512;
+unsigned int max_requests_in_time_gap;
+unsigned long int total_line_count;
+unsigned long int total_statistic_entry;
+unsigned long int total_failed_request_number;
 unsigned long long int required_time_gap;
 time_t *request_times;
+request_statistic *failed_requests;
 
 int main(int argc, char** argv)
 {
@@ -27,74 +33,74 @@ int main(int argc, char** argv)
     {
         return 0;
     }
+
     FILE *input_file, *output_file;
     input_file = fopen(argv[1], "r");
     output_file = fopen(argv[3], "w");
     printf("Got valid arguments. Starting to perform.\n");
 
+    //Global variables
     request_times = calloc(0, sizeof(time_t));
-    request_statistic *failed_requests = calloc(0, sizeof(request_statistic));
-    unsigned long int total_statistic_entry = 0;
+    failed_requests = calloc(0, sizeof(request_statistic));
+    total_statistic_entry = 0;
+    max_requests_in_time_gap = 0;
+    total_failed_request_number = 0;
+    total_line_count = 0;
 
-    char *line_buff = calloc(MAX_LINE_LENGTH, sizeof(char)), *time_buff = calloc(20, sizeof(char));
-    unsigned char temp_index, request_start_index, request_length;
+    //Local variables
+    char *request_buff;
+    char *time_buff = calloc(20, sizeof(char));
+    char *line_buff = calloc(MAX_LINE_LENGTH, sizeof(char));
+    unsigned char temp_index;
+    unsigned char request_length;
+    unsigned char request_start_index;
     unsigned short request_status;
-    unsigned long int total_failed_request_number = 0, current_line_count = 0;
+    unsigned int left = 0;
+    unsigned int right = 0;
+    unsigned int temp_max_requests = 0;
 
     while (fgets(line_buff, MAX_LINE_LENGTH, input_file))
     {
         temp_index = 0;
+
+        //Parsing request time
         while (line_buff[++temp_index - 1] != '[');
         strncpy(time_buff, line_buff + temp_index, 20);
-        request_times = realloc(request_times, (current_line_count + 1) * sizeof(time_t));
-        request_times[current_line_count] = parsed_time(time_buff);
+        request_times = realloc(request_times, (total_line_count + 1) * sizeof(time_t));
+        request_times[total_line_count] = parsed_time(time_buff);
 
+        //Recalculating max requests in time gap
+        temp_max_requests++;
+        while(right > left && request_times[right] - request_times[left] > required_time_gap)
+        {
+            left++;
+            temp_max_requests--;
+        }
+        right++;
+        max_requests_in_time_gap = (temp_max_requests > max_requests_in_time_gap ? temp_max_requests : max_requests_in_time_gap);
+
+        //Parsing request body
         while (line_buff[++temp_index - 1] != '"');
         request_start_index = temp_index;
         while (line_buff[++temp_index + 1] != '"');
         request_length = temp_index - request_start_index + 1;
-        char *request_buff = calloc(request_length, sizeof(char) + 1);
+        request_buff = calloc(request_length, sizeof(char) + 1);
         strncpy(request_buff, line_buff + request_start_index, request_length);
         request_buff[request_length] = '\0';
 
+        //Parsing request status
         temp_index += 3;
         request_status = (line_buff[temp_index] - '0') * 100 + (line_buff[temp_index + 1] - '0') * 10 + (line_buff[temp_index + 2] - '0');
         if (request_status / 100 == 5)
         {
-            total_failed_request_number++;
-            char found_simular_request = 0;
-            for (temp_index = 0; temp_index < total_statistic_entry; temp_index++)
-            {
-                if (strcmp(failed_requests[temp_index].request_info, request_buff) == 0)
-                {
-                    found_simular_request = 1;
-                    failed_requests[temp_index].request_number++;
-                    break;
-                }
-            }
-            if (found_simular_request == 0)
-            {
-                failed_requests = realloc(failed_requests, (total_statistic_entry + 1) * sizeof(request_statistic));
-                failed_requests[total_statistic_entry].request_info = calloc(request_length + 1, sizeof(char));
-                strncpy(failed_requests[total_statistic_entry].request_info, request_buff, request_length + 1);
-                failed_requests[total_statistic_entry].request_number = 1;
-                total_statistic_entry++;
-            }
+            proccess_new_failed_request(request_length, request_buff);
         }
 
         free(request_buff);
-        current_line_count++;
+        total_line_count++;
     }
 
-    unsigned int max_requests_in_time_gap = find_max_requests_in_time_gap(current_line_count);
-    fprintf(output_file, "Maximum requests in %lu seconds: %lu\n\n", required_time_gap, max_requests_in_time_gap);
-    fprintf(output_file, "Total failed requests: %d\n", total_failed_request_number);
-    fprintf(output_file, "Percentage of failed requests: %f%%\n", ((double)total_failed_request_number)/((double)current_line_count) * 100);
-    for (temp_index = 0; temp_index < total_statistic_entry; temp_index++)
-    {
-        fprintf(output_file, "%s => %d times\n", failed_requests[temp_index].request_info, failed_requests[temp_index].request_number);
-    }
-    printf("Result put in file %s\n", argv[3]);
+    print_result_info(output_file, argv[3]);
 
     free(time_buff);
     free(line_buff);
@@ -190,22 +196,40 @@ time_t parsed_time(char* time_buff)
     return mktime(&result_time);
 }
 
-unsigned int find_max_requests_in_time_gap(int total_lines_count)
+void proccess_new_failed_request(unsigned char request_length, char* request_buff)
 {
-    unsigned int result = 0;
+    total_failed_request_number++;
 
-    unsigned int left = 0, right = 0, temp_result = 0;
-    while(right < total_lines_count)
+    unsigned char found_simular_request = 0;
+
+    for (int i = 0; i < total_statistic_entry && found_simular_request == 0; i++)
     {
-        temp_result++;
-        while(right > left && request_times[right] - request_times[left] > required_time_gap)
+        if (strcmp(failed_requests[i].request_info, request_buff) == 0)
         {
-            left++;
-            temp_result--;
+            found_simular_request = 1;
+            failed_requests[i].request_number++;
         }
-        right++;
-        result = (temp_result > result ? temp_result : result);
     }
 
-    return result;
+    //New type of failed requests found
+    if (found_simular_request == 0)
+    {
+        failed_requests = realloc(failed_requests, (total_statistic_entry + 1) * sizeof(request_statistic));
+        failed_requests[total_statistic_entry].request_info = calloc(request_length + 1, sizeof(char));
+        strncpy(failed_requests[total_statistic_entry].request_info, request_buff, request_length + 1);
+        failed_requests[total_statistic_entry].request_number = 1;
+        total_statistic_entry++;
+    }
+}
+
+void print_result_info(FILE* output_file, char* output_file_name)
+{
+    fprintf(output_file, "Maximum requests in %lu seconds: %lu\n\n", required_time_gap, max_requests_in_time_gap);
+    fprintf(output_file, "Total failed requests: %d\n", total_failed_request_number);
+    fprintf(output_file, "Percentage of failed requests: %f%%\n", ((double)total_failed_request_number)/((double)total_line_count) * 100);
+    for (int i = 0; i < total_statistic_entry; i++)
+    {
+        fprintf(output_file, "%s => %d times\n", failed_requests[i].request_info, failed_requests[i].request_number);
+    }
+    printf("Result put in file %s\n", output_file_name);
 }
